@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Marketplace is Ownable {
@@ -20,10 +21,14 @@ contract Marketplace is Ownable {
         if (IERC721(collection).ownerOf(tokenId) != msg.sender) {
             revert NotOwner(tokenId);
         }
-        if (IERC721(collection).getApproved(tokenId) != address(this)) {
+        if (
+            IERC721(collection).getApproved(tokenId) != address(this)
+            && !IERC721(collection).isApprovedForAll(msg.sender, address(this))
+        ) {
             revert NotApproved(tokenId);
         }
         forSale[collection][tokenId] = price;
+        emit PutOnSale(collection, tokenId, price);
     }
 
     function getPrice(address collection, uint256 tokenId) external view returns (uint256) {
