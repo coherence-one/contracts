@@ -5,15 +5,13 @@ import {Script, console2} from "forge-std/Script.sol";
 import {Marketplace} from "../src/Marketplace.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-contract PutToSellScript is Script {
+contract AddCollectionScript is Script {
     function setUp() public {}
 
     function run() public {
-      IERC721 collection = IERC721(0x0bC0cdFDd36fc411C83221A348230Da5D3DfA89e);
       Marketplace marketplace = Marketplace(0x8fD02Bc877410A6Ee9d927216362D1601B1843Ff);
       vm.startBroadcast();
-      collection.setApprovalForAll(address(marketplace), true);
-      marketplace.setToSell(address(collection), 1494, 200 ether);
+      marketplace.addCollection(0xd88980c139f0267A0Af9eaA21DD3062f79515D74);
       vm.stopBroadcast();
     }
 }
