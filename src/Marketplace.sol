@@ -5,11 +5,12 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {console2} from "forge-std/Test.sol";
 
 contract Marketplace is OwnableUpgradeable {
     error NotOwner(uint256 tokenId);
     error NotApproved(uint256 tokenId);
-    error WrongPrice(uint256 tokenId);
+    error WrongPrice(uint256 tokenId, uint256 price);
     error CollectionNotEnumerable();
     error CollectionNotAdded(address collection);
     error WrongCurrentOwner(uint256 tokenId);
@@ -19,6 +20,8 @@ contract Marketplace is OwnableUpgradeable {
     event PutOnSale(address indexed collection, uint256 indexed tokenId, uint256 price);
     event Deal(address indexed collection, uint256 indexed tokenId, uint256 price);
     event CollectionAdded(address indexed collection);
+    event MarketplaceFeeChanged(uint256 newFee);
+    event CollectionFeeChanged(address indexed collection, uint16 newFee, address beneficiar);
 
     struct Royalty {
         address beneficiar;
@@ -50,6 +53,10 @@ contract Marketplace is OwnableUpgradeable {
         if (IERC721(collection).ownerOf(tokenId) != msg.sender) {
             revert NotOwner(tokenId);
         }
+        console2.log("tokenId", tokenId);
+        console2.log("approved", IERC721(collection).getApproved(tokenId));
+        console2.log("isApprovedForAll", IERC721(collection).isApprovedForAll(msg.sender, address(this)));
+        console2.log("collection", collection);
         if (
             IERC721(collection).getApproved(tokenId) != address(this)
             && !IERC721(collection).isApprovedForAll(msg.sender, address(this))
@@ -83,16 +90,16 @@ contract Marketplace is OwnableUpgradeable {
 
     function buy(address collection, uint256 tokenId) external payable {
         if (msg.value == 0 || msg.value != forSale[collection][tokenId]) {
-            revert WrongPrice(forSale[collection][tokenId]);
+            revert WrongPrice(tokenId, forSale[collection][tokenId]);
         }
         address currentOwner = IERC721(collection).ownerOf(tokenId);
         if (currentOwner != whoSells[collection][tokenId]) {
             revert WrongCurrentOwner(tokenId);
         }
-        Royalty memory royalty = royalty[collection];
-        uint256 royaltyFee = royalty.fee * msg.value / 1000;
+        Royalty memory _royalty = royalty[collection];
+        uint256 royaltyFee = _royalty.fee * msg.value / 1000;
         if (royaltyFee > 0) {
-            payable(royalty.beneficiar).transfer(royaltyFee);
+            payable(_royalty.beneficiar).transfer(royaltyFee);
         }
         payable(currentOwner).transfer(msg.value * (1000 - marketplaceFee) / 1000 - royaltyFee);
         IERC721(collection).transferFrom(IERC721(collection).ownerOf(tokenId), msg.sender, tokenId);
@@ -106,6 +113,7 @@ contract Marketplace is OwnableUpgradeable {
 
     function setMarketplaceFee(uint256 newFee) external onlyOwner {
         marketplaceFee = newFee;
+        emit MarketplaceFeeChanged(newFee);
     }
 
     function setCollectionFee(address collection, uint16 newFee, address beneficiar) external onlyOwner {
@@ -116,6 +124,7 @@ contract Marketplace is OwnableUpgradeable {
             revert RoyaltyTooBig();
         }
         royalty[collection] = Royalty(beneficiar, newFee);
+        emit CollectionFeeChanged(collection, newFee, beneficiar);
     }
 
     function withdrawERC20(address token) external onlyOwner {
