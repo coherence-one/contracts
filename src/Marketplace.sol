@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {console2} from "forge-std/Test.sol";
+// import {console2} from "forge-std/Test.sol";
 
 contract Marketplace is OwnableUpgradeable {
     error NotOwner(uint256 tokenId);
@@ -22,6 +22,7 @@ contract Marketplace is OwnableUpgradeable {
     event CollectionAdded(address indexed collection);
     event MarketplaceFeeChanged(uint256 newFee);
     event CollectionFeeChanged(address indexed collection, uint16 newFee, address beneficiar);
+    error Reentrancy();
 
     struct Royalty {
         address beneficiar;
@@ -38,7 +39,9 @@ contract Marketplace is OwnableUpgradeable {
 
     bytes4 private constant INTERFACE_ID_ERC721_ENUMERABLE = type(IERC721Enumerable).interfaceId;
 
-    uint256[48] __gap;
+    uint256 reentrancyLock;
+
+    uint256[47] __gap;
 
     constructor() {}
 
@@ -53,10 +56,10 @@ contract Marketplace is OwnableUpgradeable {
         if (IERC721(collection).ownerOf(tokenId) != msg.sender) {
             revert NotOwner(tokenId);
         }
-        console2.log("tokenId", tokenId);
-        console2.log("approved", IERC721(collection).getApproved(tokenId));
-        console2.log("isApprovedForAll", IERC721(collection).isApprovedForAll(msg.sender, address(this)));
-        console2.log("collection", collection);
+        // console2.log("tokenId", tokenId);
+        // console2.log("approved", IERC721(collection).getApproved(tokenId));
+        // console2.log("isApprovedForAll", IERC721(collection).isApprovedForAll(msg.sender, address(this)));
+        // console2.log("collection", collection);
         if (
             IERC721(collection).getApproved(tokenId) != address(this)
             && !IERC721(collection).isApprovedForAll(msg.sender, address(this))
@@ -89,6 +92,11 @@ contract Marketplace is OwnableUpgradeable {
     }
 
     function buy(address collection, uint256 tokenId) external payable {
+        if (reentrancyLock == 0) {
+            reentrancyLock = 1;
+        } else {
+            revert Reentrancy();
+        }
         if (msg.value == 0 || msg.value != forSale[collection][tokenId]) {
             revert WrongPrice(tokenId, forSale[collection][tokenId]);
         }
@@ -101,10 +109,11 @@ contract Marketplace is OwnableUpgradeable {
         if (royaltyFee > 0) {
             payable(_royalty.beneficiar).transfer(royaltyFee);
         }
-        payable(currentOwner).transfer(msg.value * (1000 - marketplaceFee) / 1000 - royaltyFee);
-        IERC721(collection).transferFrom(IERC721(collection).ownerOf(tokenId), msg.sender, tokenId);
         delete forSale[collection][tokenId];
+        IERC721(collection).transferFrom(IERC721(collection).ownerOf(tokenId), msg.sender, tokenId);
+        payable(currentOwner).transfer(msg.value * (1000 - marketplaceFee) / 1000 - royaltyFee);
         emit Deal(collection, tokenId, msg.value);
+        reentrancyLock = 0;
     }
 
     function withdraw() external onlyOwner {

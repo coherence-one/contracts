@@ -20,6 +20,7 @@ contract MarketplaceTest is Test {
     event CollectionAdded(address indexed collection); // tested
     event MarketplaceFeeChanged(uint256 newFee); // tested
     event CollectionFeeChanged(address indexed collection, uint16 newFee, address beneficiar); // tested
+    error Reentrancy();
 
     Marketplace public marketplace;
     CollectionMock public collection;
