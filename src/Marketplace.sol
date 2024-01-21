@@ -29,7 +29,7 @@ contract Marketplace is OwnableUpgradeable {
         uint16 fee;
     }
 
-    uint256 public marketplaceFee = 50; // 5% of 1000
+    uint256 public marketplaceFee;
     mapping (address collection => mapping (uint256 tokenId => uint256 price)) private forSale;
     mapping (address collection => uint256 exists) private collectionSet;
 
@@ -43,10 +43,10 @@ contract Marketplace is OwnableUpgradeable {
 
     uint256[47] __gap;
 
-    constructor() {}
-
     function initialize() external initializer() {
         __Ownable_init(msg.sender);
+        marketplaceFee = 50;
+        emit MarketplaceFeeChanged(50);
     }
 
     function setToSell(address collection, uint256 tokenId, uint256 price) external {
@@ -72,7 +72,7 @@ contract Marketplace is OwnableUpgradeable {
         emit PutOnSale(collection, tokenId, price);
     }
 
-    function addCollection(address collection) external {
+    function addCollection(address collection) external onlyOwner {
         try
             IERC165(collection).supportsInterface(INTERFACE_ID_ERC721_ENUMERABLE)
         returns (bool isEnumerable) {
