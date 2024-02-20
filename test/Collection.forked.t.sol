@@ -7,7 +7,7 @@ import {Marketplace} from "../src/Marketplace.sol";
 
 
 contract CollectionForkedTest is Test {
-  ERC721Enumerable collection = ERC721Enumerable(0x2aE38daf793fCdBA9fe704a17b38C7B1981e5Df3);
+  ERC721Enumerable collection = ERC721Enumerable(0x847bF17C6341ede72AaE3F814ca8c5371c76e391);
   uint256 firstTokenId;
   address constant buyer = address(1001);
   Marketplace constant marketplace = Marketplace(0x00000000107eAC5C457503d70193603851da4c8a);
@@ -18,7 +18,10 @@ contract CollectionForkedTest is Test {
   }
 
   function test_Approve() external {
-    firstTokenId = collection.tokenByIndex(0);
+    vm.prank(marketplace.owner());
+    marketplace.addCollection(address(collection));
+    
+    firstTokenId = collection.tokenByIndex(10);
     console2.log("First token", firstTokenId);
     address firstTokenOwner = collection.ownerOf(firstTokenId);
     console2.log("First token owner", firstTokenOwner);
@@ -30,5 +33,9 @@ contract CollectionForkedTest is Test {
     vm.stopPrank();
     vm.startPrank(buyer);
     marketplace.buy{value: 100}(address(collection), firstTokenId);
+  }
+
+  fallback() external {
+
   }
 }
